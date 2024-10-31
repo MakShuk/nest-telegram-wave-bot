@@ -26,14 +26,6 @@ export class IntervalTaskService {
     return task;
   }
 
-  startAt0957(fn: () => Promise<any>, startTime = '57 6 * * *') {
-    return this.scheduleTask('09:57', startTime, fn);
-  }
-
-  startAt1852(fn: () => Promise<any>, startTime = '52 16 * * *') {
-    return this.scheduleTask('18:51', startTime, fn);
-  }
-
   setMinIntervalTask(
     fn: () => Promise<any>,
     interval = '*/5 * * * *',

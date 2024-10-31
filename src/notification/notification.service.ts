@@ -8,9 +8,11 @@ export class NotificationService {
     startNotification(func: () => void, interval: number = 10) {
         const hoursUntil18 = this.getHoursUntil18()
         this.interval.setMinIntervalTask(async () => {
-            console.log(`startNotification`);
-            console.log(this.getHoursUntil18(), 'hours');
-            this.getRandomBoolean() ? func() : null
+            const status = this.getRandomBoolean() 
+            status ? func() : null
+            console.log(`Запуск уведомления с интервалом ${interval} мин.`)
+            console.log(`До конца осталось ${hoursUntil18} часов`);
+            console.log(`Уведомление ${status ? 'отправлено' : 'не отправлено'}`);
         }, `*/${interval} * * * *`, hoursUntil18);
     }
 
