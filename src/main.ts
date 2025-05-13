@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, LogLevel } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
   try {
@@ -24,31 +23,15 @@ async function bootstrap() {
 
     // Получение ConfigService для доступа к переменным окружения
     const configService = app.get(ConfigService);
-    const port = configService.get<number>('PORT', 3000);
     const environment = configService.get<string>('NODE_ENV', 'development');
 
-    // Swagger документация (только для development)
-    if (environment === 'development') {
-      const config = new DocumentBuilder()
-        .setTitle('API Documentation')
-        .setVersion('1.0')
-        .build();
-      const document = SwaggerModule.createDocument(app, config);
-      SwaggerModule.setup('docs', app, document);
-    }
-
-    // Запуск приложения
-    await app.listen(port);
+    // Запуск приложения без явного указания порта
+    await app.init();
 
     // Расширенное логирование
     const logger = new Logger('Bootstrap');
-    logger.log(`🚀 Application is running on: http://localhost:${port}`);
+    logger.log(`🚀 Application initialized successfully`);
     logger.log(`📝 Environment: ${environment}`);
-    if (environment === 'development') {
-      logger.log(
-        `📚 Swagger documentation available at: http://localhost:${port}/docs`,
-      );
-    }
   } catch (error) {
     Logger.error(`❌ Error starting server: ${error.message}`, error.stack);
     process.exit(1);

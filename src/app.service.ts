@@ -6,6 +6,8 @@ import { Telegraf } from 'telegraf';
 
 @Injectable()
 export class AppService implements OnModuleInit {
+  private lastMessageId: number | null = null;
+
   constructor(
     private readonly telegramActionsService: TelegramActionsService,
     private readonly notificationService: NotificationService,
@@ -18,7 +20,18 @@ export class AppService implements OnModuleInit {
 
   async sendNotification(message: string): Promise<void> {
     try {
-      this.bot.telegram.sendMessage(process.env.TELEGRAM_MAIN_USER, message);
+      // Удаляем предыдущее сообщение, если оно существует
+      if (this.lastMessageId) {
+        try {
+          await this.bot.telegram.deleteMessage(process.env.TELEGRAM_MAIN_USER, this.lastMessageId);
+        } catch (deleteError) {
+          console.error('Ошибка при удалении предыдущего сообщения:', deleteError);
+        }
+      }
+
+      // Отправляем новое сообщение и сохраняем его ID
+      const newMessage = await this.bot.telegram.sendMessage(process.env.TELEGRAM_MAIN_USER, message);
+      this.lastMessageId = newMessage.message_id;
     } catch (error) {
       console.error('Ошибка при отправке уведомления в Telegram:', error);
       throw error;
