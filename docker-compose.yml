@@ -6,8 +6,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: Wave_bot
-    ports:
-      - 3999:3999
     restart: always
     networks:
       - home
