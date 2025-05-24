@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as cron from 'node-cron';
 
 @Injectable()
 export class IntervalTaskService {
+  private readonly logger = new Logger(IntervalTaskService.name);
   private runningTasks = new Map<string, cron.ScheduledTask>();
 
   private scheduleTask(
@@ -79,7 +80,14 @@ export class IntervalTaskService {
   };
 
   stopAllTasks = () => {
-    this.runningTasks.forEach((task) => task.stop());
+    this.logger.log(`🛑 Stopping ${this.runningTasks.size} running tasks...`);
+    
+    this.runningTasks.forEach((task, name) => {
+      this.logger.log(`⏹️ Stopping task: ${name}`);
+      task.stop();
+    });
+    
     this.runningTasks.clear();
+    this.logger.log('✅ All tasks stopped successfully');
   };
 }

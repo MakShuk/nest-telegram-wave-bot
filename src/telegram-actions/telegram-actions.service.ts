@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { Context, Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 
@@ -22,7 +22,7 @@ interface ErrorDetails {
  * @class TelegrafService
  */
 @Injectable()
-export class TelegramActionsService {
+export class TelegramActionsService implements OnApplicationShutdown {
   private readonly logger = new Logger(TelegramActionsService.name);
 
   /**
@@ -144,5 +144,22 @@ export class TelegramActionsService {
     this.bot.action(action, (ctx) =>
       this.executeHandler('button:' + action.toString(), callback, ctx),
     );
+  }
+
+  /**
+   * Корректное завершение работы Telegram бота
+   * @param signal - Сигнал завершения приложения
+   */
+  async onApplicationShutdown(signal?: string) {
+    this.logger.log(`🛑 Shutting down Telegram bot due to ${signal || 'unknown signal'}`);
+    
+    try {
+      // Остановка бота
+      await this.bot.stop();
+      this.logger.log('✅ Telegram bot stopped successfully');
+    } catch (error) {
+      this.logger.error(`❌ Error stopping Telegram bot: ${error.message}`);
+      throw error;
+    }
   }
 }

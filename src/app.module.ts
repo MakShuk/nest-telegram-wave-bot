@@ -7,10 +7,12 @@ import { TelegramModule } from 'src/configs/telegram.config';
 import { TelegramActionsModule } from './telegram-actions/telegram-actions.module';
 import { TelegramActionsService } from './telegram-actions/telegram-actions.service';
 import { NotificationModule } from './notification/notification.module';
+import { ShutdownService } from './services/shutdown.service';
+import { IntervalTaskService } from './services/interval-task.service';
 
 @Module({
   imports: [ConfigModule.forRoot(getConfigModuleOptions()), TelegramModule.forRootAsync(), TelegramActionsModule, NotificationModule],
   controllers: [AppController],
-  providers: [AppService, TelegramActionsService],
+  providers: [AppService, TelegramActionsService, IntervalTaskService, ShutdownService],
 })
 export class AppModule { }

@@ -25,6 +25,9 @@ async function bootstrap() {
     const configService = app.get(ConfigService);
     const environment = configService.get<string>('NODE_ENV', 'development');
 
+    // НОВОЕ: Включаем graceful shutdown hooks
+    app.enableShutdownHooks();
+
     // Запуск приложения без явного указания порта
     await app.init();
 
@@ -32,6 +35,22 @@ async function bootstrap() {
     const logger = new Logger('Bootstrap');
     logger.log(`🚀 Application initialized successfully`);
     logger.log(`📝 Environment: ${environment}`);
+
+    // НОВОЕ: Обработчики сигналов завершения
+    const gracefulShutdown = (signal: string) => {
+      logger.log(`🛑 Received ${signal}, starting graceful shutdown...`);
+      app.close().then(() => {
+        logger.log(`✅ Application closed gracefully`);
+        process.exit(0);
+      }).catch((error) => {
+        logger.error(`❌ Error during shutdown: ${error.message}`);
+        process.exit(1);
+      });
+    };
+
+    // Перехват сигналов завершения
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   } catch (error) {
     Logger.error(`❌ Error starting server: ${error.message}`, error.stack);
     process.exit(1);
