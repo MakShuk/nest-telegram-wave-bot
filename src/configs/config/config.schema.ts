@@ -12,6 +12,11 @@ export const configValidationSchema = Joi.object({
     .default(ENV_VALUES.DEFAULT_VALUES.NODE_ENV)
     .description('Node environment'),
 
+  LOG_LEVEL: Joi.string()
+    .valid('error', 'warn', 'log', 'debug', 'verbose')
+    .default('log')
+    .description('Application logging level'),
+
   TELEGRAM_MAIN_USER: Joi.string()
     .required()
     .description('Main Telegram user identifier'),

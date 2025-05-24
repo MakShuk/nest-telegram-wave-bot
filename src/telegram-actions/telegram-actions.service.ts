@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { Context, Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
+import { CustomLoggingService } from '../common/logging.service';
 
 /** Функция обратного вызова для обработки сообщений */
 type MessageCallback = (ctx: Context) => Promise<void>;
@@ -27,10 +28,12 @@ export class TelegramActionsService implements OnApplicationShutdown {
 
   /**
    * @param bot - Экземпляр Telegram бота
+   * @param loggingService - Сервис логирования
    */
   constructor(
     @Inject('TELEGRAM_BOT_INSTANCE')
     private readonly bot: Telegraf<Context>,
+    private readonly loggingService: CustomLoggingService,
   ) {
     this.setupErrorHandler();
   }
@@ -75,15 +78,48 @@ export class TelegramActionsService implements OnApplicationShutdown {
     callback: MessageCallback,
     ctx: Context,
   ): Promise<void> {
+    const startTime = Date.now();
+    const userId = ctx.from?.id?.toString();
+    const chatId = ctx.chat?.id?.toString();
+
     try {
       this.logger.debug(`Executing ${method}`);
       await callback(ctx);
+      
+      const duration = Date.now() - startTime;
+      this.loggingService.recordPerformanceMetric(`telegram_${method}`, duration, {
+        userId,
+        chatId,
+        success: true
+      });
+
+      // Логируем команды отдельно
+      if (method.startsWith('command:')) {
+        const command = method.replace('command:', '');
+        this.loggingService.logTelegramCommand(command, userId, chatId, true);
+      }
+
     } catch (error) {
+      const duration = Date.now() - startTime;
+      this.loggingService.recordPerformanceMetric(`telegram_${method}`, duration, {
+        userId,
+        chatId,
+        success: false,
+        error: true
+      });
+
       this.handleError({
         method,
         error: error as Error,
         context: ctx.update,
       });
+
+      // Логируем неудачные команды
+      if (method.startsWith('command:')) {
+        const command = method.replace('command:', '');
+        this.loggingService.logTelegramCommand(command, userId, chatId, false);
+      }
+
       throw error;
     }
   }
