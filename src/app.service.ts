@@ -3,17 +3,49 @@ import { TelegramActionsService } from './telegram-actions/telegram-actions.serv
 import { NotificationService } from './notification/notification.service';
 import { Context, Markup } from 'telegraf';
 import { Telegraf } from 'telegraf';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class AppService implements OnModuleInit {
   private lastMessageId: number | null = null;
+  private config: any;
 
   constructor(
     private readonly telegramActionsService: TelegramActionsService,
     private readonly notificationService: NotificationService,
     @Inject('TELEGRAM_BOT_INSTANCE')
     private readonly bot: Telegraf<Context>,
-  ) {}
+  ) {
+    this.loadConfig();
+  }
+
+  private loadConfig(): void {
+    try {
+      const configPath = path.join(process.cwd(), 'config.json');
+      const configData = fs.readFileSync(configPath, 'utf8');
+      this.config = JSON.parse(configData);
+    } catch (error) {
+      console.error('Ошибка при загрузке конфигурации:', error);
+      // Fallback конфигурация
+      this.config = {
+        timers: {
+          intervals: [
+            { id: 'time3Min', value: 3, label: '3 минуты', buttonText: '3 минуты' },
+            { id: 'time5Min', value: 5, label: '5 минут', buttonText: '5 минут' },
+            { id: 'time10Min', value: 10, label: '10 минут', buttonText: '10 минут' },
+            { id: 'time15Min', value: 15, label: '15 минут', buttonText: '15 минут' }
+          ],
+          messages: {
+            notification: 'Меняй',
+            start: 'Интервал запуска уведомлений',
+            stop: 'Остановить',
+            stopped: 'Уведомления остановлены'
+          }
+        }
+      };
+    }
+  }
   getStatus(): string {
     return 'OK';
   }
@@ -38,61 +70,52 @@ export class AppService implements OnModuleInit {
     }
   }
 
+  private async startTimerNotification(interval: any, ctx: Context): Promise<void> {
+    const messages = this.config.timers.messages;
+
+    this.notificationService.stopNotification();
+    this.notificationService.startNotification(
+      () => this.sendNotification(messages.notification),
+      interval.value,
+    );
+    await ctx.reply(`Уведомления запущены с интервалом ${interval.label}`);
+  }
+
+  private setupTimerButtons(): void {
+    const intervals = this.config.timers.intervals;
+
+    intervals.forEach((interval: any) => {
+      this.telegramActionsService.buttonAction(interval.id, async (ctx) => {
+        await this.startTimerNotification(interval, ctx);
+      });
+    });
+  }
+
   async onModuleInit() {
+    const intervals = this.config.timers.intervals;
+    const messages = this.config.timers.messages;
+
     this.telegramActionsService.createCommand('start', async (ctx) => {
-      const time5Min = Markup.button.callback(`5 минут`, 'time5Min');
-      const time3Min = Markup.button.callback(`3 минуты`, 'time3Min');
-      const time10Min = Markup.button.callback(`10 минут`, 'time10Min');
-      const time15Min = Markup.button.callback(`15 минут`, 'time15Min');
-      const stop = Markup.button.callback(`Остановить`, 'stop');
+      // Создаем кнопки для всех интервалов из конфигурации
+      const timerButtons = intervals.map((interval: any) =>
+        Markup.button.callback(interval.buttonText, interval.id)
+      );
+      
+      // Добавляем кнопку остановки
+      const stopButton = Markup.button.callback(messages.stop, 'stop');
+      const allButtons = [...timerButtons, stopButton];
+      
       await ctx.reply(
-        `Интервал запуска уведомлений`,
-        Markup.inlineKeyboard(
-          [time3Min, time5Min, time10Min, time15Min, stop],
-          { columns: 2 },
-        ),
+        messages.start,
+        Markup.inlineKeyboard(allButtons, { columns: 2 }),
       );
     });
 
-    this.telegramActionsService.buttonAction('time3Min', async (ctx) => {
-      this.notificationService.stopNotification();
-      this.notificationService.startNotification(
-        () => this.sendNotification('Меняй'),
-        3,
-      );
-      ctx.reply('Уведомления запущены с интервалом 3 минуты');
-    });
-
-    this.telegramActionsService.buttonAction('time5Min', async (ctx) => {
-      this.notificationService.stopNotification();
-      this.notificationService.startNotification(
-        () => this.sendNotification('Меняй'),
-        5,
-      );
-      ctx.reply('Уведомления запущены с интервалом 5 минут');
-    });
-
-    this.telegramActionsService.buttonAction('time10Min', async (ctx) => {
-      this.notificationService.stopNotification();
-      this.notificationService.startNotification(
-        () => this.sendNotification('Меняй'),
-        10,
-      );
-      ctx.reply('Уведомления запущены с интервалом 10 минут');
-    });
-
-    this.telegramActionsService.buttonAction('time15Min', async (ctx) => {
-      this.notificationService.stopNotification();
-      this.notificationService.startNotification(
-        () => this.sendNotification('Меняй'),
-        15,
-      );
-      ctx.reply('Уведомления запущены с интервалом 15 минут');
-    });
+    this.setupTimerButtons();
 
     this.telegramActionsService.buttonAction('stop', async (ctx) => {
       this.notificationService.stopNotification();
-      ctx.reply('Уведомления остановлены');
+      await ctx.reply(messages.stopped);
     });
   }
 }

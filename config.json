@@ -1,0 +1,36 @@
+{
+  "timers": {
+    "intervals": [
+      {
+        "id": "time1Min",
+        "value": 3,
+        "label": "3 минуты",
+        "buttonText": "3 минуты"
+      },
+      {
+        "id": "time5Min",
+        "value": 5,
+        "label": "5 минут",
+        "buttonText": "5 минут"
+      },
+      {
+        "id": "time10Min",
+        "value": 10,
+        "label": "10 минут",
+        "buttonText": "10 минут"
+      },
+      {
+        "id": "time15Min",
+        "value": 15,
+        "label": "15 минут",
+        "buttonText": "15 минут"
+      }
+    ],
+    "messages": {
+      "notification": "Меняй",
+      "start": "Интервал запуска уведомлений",
+      "stop": "Остановить",
+      "stopped": "Уведомления остановлены"
+    }
+  }
+}
