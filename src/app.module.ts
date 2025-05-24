@@ -18,7 +18,7 @@ import { LoggingInterceptor } from './common/logging.interceptor';
     LoggingModule,
     TelegramModule.forRootAsync(),
     TelegramActionsModule,
-    NotificationModule
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [
@@ -31,4 +31,4 @@ import { LoggingInterceptor } from './common/logging.interceptor';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}
