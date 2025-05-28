@@ -9,6 +9,7 @@ import * as path from 'path';
 @Injectable()
 export class AppService implements OnModuleInit {
   private lastMessageId: number | null = null;
+  private botMessageIds: number[] = [];
   private config: any;
 
   constructor(
@@ -50,6 +51,23 @@ export class AppService implements OnModuleInit {
     return 'OK';
   }
 
+  private async clearAllBotMessages(): Promise<void> {
+    const userId = process.env.TELEGRAM_MAIN_USER;
+    
+    // Удаляем все сохраненные сообщения бота
+    for (const messageId of this.botMessageIds) {
+      try {
+        await this.bot.telegram.deleteMessage(userId, messageId);
+      } catch (deleteError) {
+        console.error(`Ошибка при удалении сообщения ${messageId}:`, deleteError);
+      }
+    }
+    
+    // Очищаем массив ID сообщений
+    this.botMessageIds = [];
+    this.lastMessageId = null;
+  }
+
   async sendNotification(message: string): Promise<void> {
     try {
       // Удаляем предыдущее сообщение, если оно существует
@@ -64,6 +82,7 @@ export class AppService implements OnModuleInit {
       // Отправляем новое сообщение и сохраняем его ID
       const newMessage = await this.bot.telegram.sendMessage(process.env.TELEGRAM_MAIN_USER, message);
       this.lastMessageId = newMessage.message_id;
+      this.botMessageIds.push(newMessage.message_id);
     } catch (error) {
       console.error('Ошибка при отправке уведомления в Telegram:', error);
       throw error;
@@ -78,7 +97,8 @@ export class AppService implements OnModuleInit {
       () => this.sendNotification(messages.notification),
       interval.value,
     );
-    await ctx.reply(`Уведомления запущены с интервалом ${interval.label}`);
+    const replyMessage = await ctx.reply(`Уведомления запущены с интервалом ${interval.label}`);
+    this.botMessageIds.push(replyMessage.message_id);
   }
 
   private setupTimerButtons(): void {
@@ -105,10 +125,11 @@ export class AppService implements OnModuleInit {
       const stopButton = Markup.button.callback(messages.stop, 'stop');
       const allButtons = [...timerButtons, stopButton];
       
-      await ctx.reply(
+      const startMessage = await ctx.reply(
         messages.start,
         Markup.inlineKeyboard(allButtons, { columns: 2 }),
       );
+      this.botMessageIds.push(startMessage.message_id);
     });
 
     this.setupTimerButtons();
@@ -117,15 +138,8 @@ export class AppService implements OnModuleInit {
       // Останавливаем уведомления
       this.notificationService.stopNotification();
       
-      // Удаляем текущее сообщение (с кнопками)
-      try {
-        await ctx.deleteMessage();
-      } catch (deleteError) {
-        console.error('Ошибка при удалении сообщения:', deleteError);
-      }
-      
-      // Очищаем ID последнего сообщения
-      this.lastMessageId = null;
+      // Очищаем всю историю сообщений бота
+      await this.clearAllBotMessages();
       
       // Заново показываем меню start
       const timerButtons = intervals.map((interval: any) =>
@@ -135,10 +149,11 @@ export class AppService implements OnModuleInit {
       const stopButton = Markup.button.callback(messages.stop, 'stop');
       const allButtons = [...timerButtons, stopButton];
       
-      await ctx.reply(
+      const newStartMessage = await ctx.reply(
         messages.start,
         Markup.inlineKeyboard(allButtons, { columns: 2 }),
       );
+      this.botMessageIds.push(newStartMessage.message_id);
     });
   }
 }
