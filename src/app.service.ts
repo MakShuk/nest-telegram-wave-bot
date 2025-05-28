@@ -114,8 +114,31 @@ export class AppService implements OnModuleInit {
     this.setupTimerButtons();
 
     this.telegramActionsService.buttonAction('stop', async (ctx) => {
+      // Останавливаем уведомления
       this.notificationService.stopNotification();
-      await ctx.reply(messages.stopped);
+      
+      // Удаляем текущее сообщение (с кнопками)
+      try {
+        await ctx.deleteMessage();
+      } catch (deleteError) {
+        console.error('Ошибка при удалении сообщения:', deleteError);
+      }
+      
+      // Очищаем ID последнего сообщения
+      this.lastMessageId = null;
+      
+      // Заново показываем меню start
+      const timerButtons = intervals.map((interval: any) =>
+        Markup.button.callback(interval.buttonText, interval.id)
+      );
+      
+      const stopButton = Markup.button.callback(messages.stop, 'stop');
+      const allButtons = [...timerButtons, stopButton];
+      
+      await ctx.reply(
+        messages.start,
+        Markup.inlineKeyboard(allButtons, { columns: 2 }),
+      );
     });
   }
 }
