@@ -41,10 +41,27 @@ export class AppService implements OnModuleInit {
             notification: 'Меняй',
             start: 'Интервал запуска уведомлений',
             stop: 'Остановить',
-            stopped: 'Уведомления остановлены'
+            stopped: 'Уведомления остановлены',
+            doubleMode: 'Двойной режим',
+            doubleModeEnabled: '✅ Двойной режим включен',
+            doubleModeDisabled: '❌ Двойной режим выключен',
+            secondNotification: 'Повтор'
+          },
+          doubleNotificationMode: {
+            enabled: false,
+            delayMinutes: 1
           }
         }
       };
+    }
+  }
+
+  private saveConfig(): void {
+    try {
+      const configPath = path.join(process.cwd(), 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify(this.config, null, 2), 'utf8');
+    } catch (error) {
+      console.error('Ошибка при сохранении конфигурации:', error);
     }
   }
   getStatus(): string {
@@ -59,7 +76,10 @@ export class AppService implements OnModuleInit {
       try {
         await this.bot.telegram.deleteMessage(userId, messageId);
       } catch (deleteError) {
-        console.error(`Ошибка при удалении сообщения ${messageId}:`, deleteError);
+        // Игнорируем ошибку, если сообщение уже было удалено (код 400)
+        if (deleteError?.response?.error_code !== 400) {
+          console.error(`Ошибка при удалении сообщения ${messageId}:`, deleteError);
+        }
       }
     }
     
@@ -74,8 +94,16 @@ export class AppService implements OnModuleInit {
       if (this.lastMessageId) {
         try {
           await this.bot.telegram.deleteMessage(process.env.TELEGRAM_MAIN_USER, this.lastMessageId);
+          // Удаляем из массива botMessageIds, если оно там есть
+          const index = this.botMessageIds.indexOf(this.lastMessageId);
+          if (index > -1) {
+            this.botMessageIds.splice(index, 1);
+          }
         } catch (deleteError) {
-          console.error('Ошибка при удалении предыдущего сообщения:', deleteError);
+          // Игнорируем ошибку, если сообщение уже было удалено
+          if (deleteError?.response?.error_code !== 400) {
+            console.error('Ошибка при удалении предыдущего сообщения:', deleteError);
+          }
         }
       }
 
@@ -89,6 +117,17 @@ export class AppService implements OnModuleInit {
     }
   }
 
+  async sendSecondNotification(message: string): Promise<void> {
+    try {
+      // Отправляем второе уведомление без удаления предыдущего
+      const newMessage = await this.bot.telegram.sendMessage(process.env.TELEGRAM_MAIN_USER, message);
+      this.botMessageIds.push(newMessage.message_id);
+    } catch (error) {
+      console.error('Ошибка при отправке второго уведомления в Telegram:', error);
+      throw error;
+    }
+  }
+
   private async startTimerNotification(interval: any, ctx: Context): Promise<void> {
     const messages = this.config.timers.messages;
 
@@ -97,8 +136,33 @@ export class AppService implements OnModuleInit {
       () => this.sendNotification(messages.notification),
       interval.value,
     );
-    const replyMessage = await ctx.reply(`Уведомления запущены с интервалом ${interval.label}`);
-    this.botMessageIds.push(replyMessage.message_id);
+    
+    // Устанавливаем функцию для второго уведомления
+    this.notificationService.setSecondNotificationFunc(
+      () => this.sendSecondNotification(messages.secondNotification)
+    );
+    
+    // Отвечаем на callback query, чтобы убрать "часы" на кнопке
+    await ctx.answerCbQuery(`Запущен интервал ${interval.label}`);
+    
+    // Удаляем предыдущие сообщения-подтверждения (кроме стартового меню)
+    const confirmationMessages = this.botMessageIds.filter(id => id !== this.lastMessageId);
+    for (const msgId of confirmationMessages) {
+      try {
+        await this.bot.telegram.deleteMessage(process.env.TELEGRAM_MAIN_USER, msgId);
+      } catch (deleteError) {
+        if (deleteError?.response?.error_code !== 400) {
+          console.error(`Ошибка при удалении сообщения ${msgId}:`, deleteError);
+        }
+      }
+    }
+    
+    // Отправляем одно подтверждающее сообщение
+    const doubleModeStatus = this.notificationService.isDoubleNotificationEnabled() 
+      ? '(двойной режим включен)' 
+      : '';
+    const replyMessage = await ctx.reply(`✅ Уведомления запущены с интервалом ${interval.label} ${doubleModeStatus}`);
+    this.botMessageIds = [replyMessage.message_id];
   }
 
   private setupTimerButtons(): void {
@@ -115,15 +179,26 @@ export class AppService implements OnModuleInit {
     const intervals = this.config.timers.intervals;
     const messages = this.config.timers.messages;
 
+    // Устанавливаем начальное состояние режима двойных уведомлений из конфигурации
+    if (this.config.timers.doubleNotificationMode?.enabled) {
+      this.notificationService.enableDoubleNotification(true);
+    }
+
     this.telegramActionsService.createCommand('start', async (ctx) => {
       // Создаем кнопки для всех интервалов из конфигурации
       const timerButtons = intervals.map((interval: any) =>
         Markup.button.callback(interval.buttonText, interval.id)
       );
       
+      // Добавляем кнопку двойного режима
+      const doubleModeText = this.notificationService.isDoubleNotificationEnabled() 
+        ? messages.doubleModeEnabled 
+        : messages.doubleModeDisabled;
+      const doubleModeButton = Markup.button.callback(doubleModeText, 'toggle_double_mode');
+      
       // Добавляем кнопку остановки
       const stopButton = Markup.button.callback(messages.stop, 'stop');
-      const allButtons = [...timerButtons, stopButton];
+      const allButtons = [...timerButtons, doubleModeButton, stopButton];
       
       const startMessage = await ctx.reply(
         messages.start,
@@ -134,7 +209,45 @@ export class AppService implements OnModuleInit {
 
     this.setupTimerButtons();
 
+    // Обработчик переключения режима двойных уведомлений
+    this.telegramActionsService.buttonAction('toggle_double_mode', async (ctx) => {
+      const currentState = this.notificationService.isDoubleNotificationEnabled();
+      const newState = !currentState;
+      
+      // Переключаем состояние
+      this.notificationService.enableDoubleNotification(newState);
+      
+      // Сохраняем в конфигурацию
+      this.config.timers.doubleNotificationMode.enabled = newState;
+      this.saveConfig();
+      
+      // Отвечаем на callback query
+      const statusMessage = newState ? messages.doubleModeEnabled : messages.doubleModeDisabled;
+      await ctx.answerCbQuery(statusMessage);
+      
+      // Обновляем меню с новым статусом кнопки
+      const timerButtons = intervals.map((interval: any) =>
+        Markup.button.callback(interval.buttonText, interval.id)
+      );
+      
+      const doubleModeText = newState ? messages.doubleModeEnabled : messages.doubleModeDisabled;
+      const doubleModeButton = Markup.button.callback(doubleModeText, 'toggle_double_mode');
+      const stopButton = Markup.button.callback(messages.stop, 'stop');
+      const allButtons = [...timerButtons, doubleModeButton, stopButton];
+      
+      // Удаляем старое меню и создаем новое
+      await this.clearAllBotMessages();
+      const newStartMessage = await ctx.reply(
+        messages.start,
+        Markup.inlineKeyboard(allButtons, { columns: 2 }),
+      );
+      this.botMessageIds.push(newStartMessage.message_id);
+    });
+
     this.telegramActionsService.buttonAction('stop', async (ctx) => {
+      // Отвечаем на callback query
+      await ctx.answerCbQuery('Уведомления остановлены');
+      
       // Останавливаем уведомления
       this.notificationService.stopNotification();
       
@@ -146,8 +259,12 @@ export class AppService implements OnModuleInit {
         Markup.button.callback(interval.buttonText, interval.id)
       );
       
+      const doubleModeText = this.notificationService.isDoubleNotificationEnabled() 
+        ? messages.doubleModeEnabled 
+        : messages.doubleModeDisabled;
+      const doubleModeButton = Markup.button.callback(doubleModeText, 'toggle_double_mode');
       const stopButton = Markup.button.callback(messages.stop, 'stop');
-      const allButtons = [...timerButtons, stopButton];
+      const allButtons = [...timerButtons, doubleModeButton, stopButton];
       
       const newStartMessage = await ctx.reply(
         messages.start,
