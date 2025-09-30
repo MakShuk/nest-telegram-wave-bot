@@ -12,8 +12,11 @@ export class NotificationService {
     startNotification(func: () => void, interval: number = 10) {
         const hoursUntil18 = this.getHoursUntil18()
         
-        this.loggingService.log(`Starting notification with interval ${interval} minutes`, {
-            metadata: { interval, hoursUntil18 }
+        this.loggingService.log(`🔔 Запуск системы уведомлений`, {
+            metadata: { 
+                interval: `${interval} мин`, 
+                hoursUntil18: `${hoursUntil18} ч` 
+            }
         });
 
         this.interval.setMinIntervalTask(async () => {
@@ -25,7 +28,7 @@ export class NotificationService {
                     func();
                     this.loggingService.logNotification('random_notification', 'system', true);
                 } else {
-                    this.loggingService.log('Random notification skipped', {
+                    this.loggingService.debug('⏭️ Уведомление пропущено (случайный выбор)', {
                         metadata: { interval, hoursRemaining: this.getHoursUntil18() }
                     });
                 }
@@ -37,9 +40,13 @@ export class NotificationService {
                     hoursRemaining: this.getHoursUntil18()
                 });
 
-                console.log(`Запуск уведомления с интервалом ${interval} мин.`)
-                console.log(`До конца осталось ${this.getHoursUntil18()} часов`);
-                console.log(`Уведомление ${status ? 'отправлено' : 'не отправлено'}`);
+                this.loggingService.log(`📬 Проверка уведомлений`, {
+                    metadata: {
+                        interval: `${interval} мин`,
+                        hoursRemaining: `${this.getHoursUntil18()} часов`,
+                        status: status ? '✅ отправлено' : '⏭️ пропущено'
+                    }
+                });
                 
             } catch (error) {
                 const duration = Date.now() - startTime;
@@ -56,9 +63,9 @@ export class NotificationService {
     }
 
     stopNotification() {
-        this.loggingService.log('Stopping all notifications');
+        this.loggingService.log('🔕 Остановка всех уведомлений');
         this.interval.stopAllTasks();
-        this.loggingService.log('All notifications stopped successfully');
+        this.loggingService.log('✅ Все уведомления успешно остановлены');
     }
 
     private readonly getRandomBoolean = (): boolean => Math.random() < 0.5;

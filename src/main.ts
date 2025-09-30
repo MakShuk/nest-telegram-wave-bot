@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, LogLevel } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as chalk from 'chalk';
 
 async function bootstrap() {
   try {
@@ -33,17 +34,23 @@ async function bootstrap() {
 
     // Расширенное логирование
     const logger = new Logger('Bootstrap');
-    logger.log(`🚀 Application initialized successfully`);
-    logger.log(`📝 Environment: ${environment}`);
+    console.log('\n' + '═'.repeat(80));
+    logger.log(`🚀 Приложение успешно инициализировано`);
+    logger.log(`📝 Окружение: ${chalk.cyan(environment)}`);
+    logger.log(`🤖 Telegram бот запущен и готов к работе`);
+    console.log('═'.repeat(80) + '\n');
 
     // НОВОЕ: Обработчики сигналов завершения
     const gracefulShutdown = (signal: string) => {
-      logger.log(`🛑 Received ${signal}, starting graceful shutdown...`);
+      console.log('\n' + '═'.repeat(80));
+      logger.log(`🛑 Получен сигнал ${chalk.yellow(signal)}, начинаем корректное завершение...`);
       app.close().then(() => {
-        logger.log(`✅ Application closed gracefully`);
+        logger.log(`✅ Приложение успешно остановлено`);
+        console.log('═'.repeat(80) + '\n');
         process.exit(0);
       }).catch((error) => {
-        logger.error(`❌ Error during shutdown: ${error.message}`);
+        logger.error(`❌ Ошибка при завершении: ${error.message}`);
+        console.log('═'.repeat(80) + '\n');
         process.exit(1);
       });
     };
@@ -52,7 +59,9 @@ async function bootstrap() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   } catch (error) {
-    Logger.error(`❌ Error starting server: ${error.message}`, error.stack);
+    console.log('\n' + '═'.repeat(80));
+    Logger.error(`❌ Ошибка запуска сервера: ${error.message}`, error.stack);
+    console.log('═'.repeat(80) + '\n');
     process.exit(1);
   }
 }

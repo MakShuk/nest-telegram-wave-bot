@@ -18,13 +18,13 @@ export class IntervalTaskService {
     fn: () => Promise<any>,
   ) {
     if (this.runningTasks.has(name)) {
-      this.loggingService.warn(`Task ${name} already exists`, {
+      this.loggingService.warn(`⚠️ Задача "${name}" уже существует`, {
         metadata: { taskName: name, cronExpression }
       });
       return;
     }
 
-    this.loggingService.log(`Scheduling task: ${name}`, {
+    this.loggingService.log(`⏰ Планирование задачи: ${name}`, {
       metadata: { taskName: name, cronExpression, totalTasks: this.runningTasks.size }
     });
 
@@ -45,7 +45,7 @@ export class IntervalTaskService {
           error: true
         });
         
-        this.loggingService.error(`Error in task ${name}`, error.stack, {
+        this.loggingService.error(`❌ Ошибка выполнения задачи "${name}"`, error.stack, {
           metadata: { taskName: name, cronExpression },
           error
         });
@@ -53,7 +53,7 @@ export class IntervalTaskService {
     });
 
     this.runningTasks.set(name, task);
-    this.loggingService.log(`Task scheduled successfully: ${name}`, {
+    this.loggingService.log(`✅ Задача успешно запланирована: ${name}`, {
       metadata: { taskName: name, totalTasks: this.runningTasks.size }
     });
     
@@ -67,7 +67,7 @@ export class IntervalTaskService {
     interval = '*/5 * * * *',
     durationInHours = 4,
   ) {
-    this.loggingService.log(`Setting up interval task for ${durationInHours} hours`, {
+    this.loggingService.log(`⏲️ Настройка интервальной задачи на ${durationInHours} часов`, {
       metadata: { interval, durationInHours, taskName: 'setMinIntervalTask' }
     });
 
@@ -76,7 +76,7 @@ export class IntervalTaskService {
     // Остановка задачи через указанное время
     setTimeout(
       () => {
-        this.loggingService.log(`Auto-stopping task after ${durationInHours} hours`, {
+        this.loggingService.log(`⏹️ Автоматическая остановка задачи после ${durationInHours} часов`, {
           metadata: { taskName: 'setMinIntervalTask', durationInHours }
         });
         this.stopMinIntervalTask();
@@ -89,7 +89,7 @@ export class IntervalTaskService {
 
   @MeasurePerformance('stop_min_interval_task')
   stopMinIntervalTask() {
-    this.loggingService.log('Stopping min interval task');
+    this.loggingService.log('⏹️ Остановка интервальной задачи');
     this.stopTask('setMinIntervalTask');
   }
 
@@ -113,7 +113,7 @@ export class IntervalTaskService {
 
   @MeasurePerformance('stop_5min_interval_task')
   stop5MinIntervalTask9H() {
-    this.loggingService.log('Stopping 5min interval task (9H)');
+    this.loggingService.log('⏹️ Остановка 5-минутной интервальной задачи (9 часов)');
     this.stopTask('intervalIn5Minutes9H');
   }
 
@@ -122,13 +122,13 @@ export class IntervalTaskService {
   stopTask(name: string) {
     const task = this.runningTasks.get(name);
     if (task) {
-      this.loggingService.log(`Stopping task: ${name}`, {
+      this.loggingService.log(`⏹️ Остановка задачи: ${name}`, {
         metadata: { taskName: name, remainingTasks: this.runningTasks.size - 1 }
       });
       task.stop();
       this.runningTasks.delete(name);
     } else {
-      this.loggingService.warn(`Task not found: ${name}`, {
+      this.loggingService.warn(`⚠️ Задача не найдена: ${name}`, {
         metadata: { taskName: name, availableTasks: Array.from(this.runningTasks.keys()) }
       });
     }
@@ -139,20 +139,20 @@ export class IntervalTaskService {
   stopAllTasks() {
     const taskCount = this.runningTasks.size;
     
-    this.logger.log(`🛑 Stopping ${taskCount} running tasks...`);
-    this.loggingService.log(`Stopping all tasks`, {
+    this.logger.log(`🛑 Остановка ${taskCount} запущенных задач...`);
+    this.loggingService.log(`🛑 Остановка всех задач`, {
       metadata: { taskCount, taskNames: Array.from(this.runningTasks.keys()) }
     });
     
     this.runningTasks.forEach((task, name) => {
-      this.logger.log(`⏹️ Stopping task: ${name}`);
-      this.loggingService.debug(`Stopping individual task: ${name}`);
+      this.logger.log(`⏹️ Остановка задачи: ${name}`);
+      this.loggingService.debug(`⏹️ Остановка задачи: ${name}`);
       task.stop();
     });
     
     this.runningTasks.clear();
-    this.logger.log('✅ All tasks stopped successfully');
-    this.loggingService.log('All tasks stopped successfully', {
+    this.logger.log('✅ Все задачи успешно остановлены');
+    this.loggingService.log('✅ Все задачи успешно остановлены', {
       metadata: { stoppedTaskCount: taskCount }
     });
   }

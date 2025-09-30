@@ -83,7 +83,7 @@ export class TelegramActionsService implements OnApplicationShutdown {
     const chatId = ctx.chat?.id?.toString();
 
     try {
-      this.logger.debug(`Executing ${method}`);
+      this.logger.debug(`▶️ Выполнение: ${method}`);
       await callback(ctx);
       
       const duration = Date.now() - startTime;

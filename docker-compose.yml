@@ -1,17 +1,105 @@
-version: '3.8'
-
 services:
   bot-1:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: Wave_bot
-    restart: always
-    # Настройки для graceful shutdown
+      # Кэширование слоев для ускорения сборки
+      cache_from:
+        - node:20
+        - node:20-slim
+    
+    container_name: wave_telegram_bot
+    hostname: wave-bot
+    
+    # Стратегия перезапуска
+    restart: unless-stopped
+    
+    # Graceful shutdown
     stop_signal: SIGTERM
     stop_grace_period: 30s
+    
+    # Переменные окружения из файла
+    env_file:
+      - ./envs/.env.production
+    
+    # Переменные окружения (можно переопределить env_file)
+    environment:
+      - NODE_ENV=production
+      - TZ=Europe/Moscow
+    
+    # Healthcheck для мониторинга состояния
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/monitoring/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Лимиты ресурсов
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Настройки логирования
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+    
+    # Volumes для персистентных данных и логов
+    volumes:
+      - bot_data:/opt/app/data
+      - bot_logs:/opt/app/logs
+    
+    # Метаданные
+    labels:
+      - "com.wave.bot.description=Telegram Wave Bot"
+      - "com.wave.bot.version=0.0.1"
+      - "com.wave.bot.maintainer=Wave Team"
+    
+    # Сеть
     networks:
       - home
+    
+    # Политика обновления (для Docker Swarm)
+    # deploy:
+    #   update_config:
+    #     parallelism: 1
+    #     delay: 10s
+    #     failure_action: rollback
+    #     order: start-first
+    #   rollback_config:
+    #     parallelism: 1
+    #     delay: 5s
+    #   restart_policy:
+    #     condition: on-failure
+    #     delay: 5s
+    #     max_attempts: 3
+
+# Именованные volumes
+volumes:
+  bot_data:
+    driver: local
+    name: wave_bot_data
+  bot_logs:
+    driver: local
+    name: wave_bot_logs
+
+# Сети
 networks:
   home:
     driver: bridge
+    name: wave_bot_network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: br-wave-bot
