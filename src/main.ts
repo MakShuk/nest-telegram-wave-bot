@@ -29,14 +29,16 @@ async function bootstrap() {
     // НОВОЕ: Включаем graceful shutdown hooks
     app.enableShutdownHooks();
 
-    // Запуск приложения без явного указания порта
-    await app.init();
+    // Запуск приложения с прослушиванием порта для healthcheck
+    const port = configService.get<number>('PORT', 3000);
+    await app.listen(port);
 
     // Расширенное логирование
     const logger = new Logger('Bootstrap');
     console.log('\n' + '═'.repeat(80));
     logger.log(`🚀 Приложение успешно инициализировано`);
     logger.log(`📝 Окружение: ${chalk.cyan(environment)}`);
+    logger.log(`🌐 HTTP сервер запущен на порту: ${chalk.green(port)}`);
     logger.log(`🤖 Telegram бот запущен и готов к работе`);
     console.log('═'.repeat(80) + '\n');
 

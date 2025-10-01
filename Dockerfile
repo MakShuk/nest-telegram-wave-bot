@@ -49,6 +49,7 @@ RUN npm ci --only=production
 # Копируем собранный код и необходимые файлы из предыдущего этапа
 COPY --from=build /opt/app/dist ./dist
 COPY --from=build /opt/app/envs/.env.production  /opt/app/envs/.env.production
+COPY --from=build /opt/app/config.json ./config.json
 
 # Запускаем приложение
 CMD ["node", "./dist/main.js"]
