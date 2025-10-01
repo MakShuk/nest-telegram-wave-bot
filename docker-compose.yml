@@ -1,105 +1,121 @@
+# Docker Compose файл для развертывания Telegram Wave Bot
+# Версия: 0.0.1
+
 services:
   bot-1:
+    # Сборка контейнера из Dockerfile в текущей директории
     build:
       context: .
       dockerfile: Dockerfile
-      # Кэширование слоев для ускорения сборки
+      # Кэширование слоев для ускорения сборки - использует готовые образы Node.js
       cache_from:
         - node:20
         - node:20-slim
-    
+
+    # Имя контейнера для удобной идентификации
     container_name: wave_telegram_bot
+    # Имя хоста внутри контейнера
     hostname: wave-bot
-    
-    # Стратегия перезапуска
+
+    # Стратегия перезапуска: автоматически перезапускать контейнер при сбоях
+    # unless-stopped = перезапускать всегда, кроме случаев ручной остановки
     restart: unless-stopped
-    
-    # Graceful shutdown
-    stop_signal: SIGTERM
-    stop_grace_period: 30s
-    
+
+    # Graceful shutdown: корректное завершение работы
+    stop_signal: SIGTERM  # Сигнал для остановки
+    stop_grace_period: 30s  # Время на корректное завершение перед принудительной остановкой
+
     # Переменные окружения из файла
+    # Файл .env.production содержит конфиденциальные данные (токены, ключи)
     env_file:
       - ./envs/.env.production
-    
+
     # Переменные окружения (можно переопределить env_file)
     environment:
-      - NODE_ENV=production
-      - TZ=Europe/Moscow
-    
-    # Healthcheck для мониторинга состояния
+      - NODE_ENV=production  # Режим работы приложения
+      - TZ=Europe/Moscow     # Часовой пояс для корректного времени
+
+    # Healthcheck для мониторинга состояния приложения
+    # Проверяет доступность эндпоинта /monitoring/health каждые 30 секунд
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/monitoring/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    
-    # Лимиты ресурсов
+      interval: 30s    # Интервал проверок
+      timeout: 10s     # Таймаут на выполнение проверки
+      retries: 3       # Количество попыток перед пометкой как unhealthy
+      start_period: 40s # Время на запуск приложения перед началом проверок
+
+    # Лимиты ресурсов для контейнера
+    # Предотвращает потребление всех ресурсов системы
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '1'      # Максимум 1 CPU ядро
+          memory: 512M   # Максимум 512MB оперативной памяти
         reservations:
-          cpus: '0.25'
-          memory: 128M
-    
+          cpus: '0.25'   # Гарантированные 0.25 CPU ядра
+          memory: 128M   # Гарантированные 128MB оперативной памяти
+
     # Настройки логирования
     logging:
-      driver: "json-file"
+      driver: "json-file"  # Формат логов в JSON
       options:
-        max-size: "10m"
-        max-file: "3"
-        compress: "true"
-    
+        max-size: "10m"    # Максимальный размер файла лога
+        max-file: "3"      # Максимальное количество файлов логов
+        compress: "true"   # Сжатие старых логов
+
     # Volumes для персистентных данных и логов
+    # Обеспечивают сохранение данных между перезапусками контейнера
     volumes:
-      - bot_data:/opt/app/data
-      - bot_logs:/opt/app/logs
-    
-    # Метаданные
+      - bot_data:/opt/app/data   # Том для данных приложения
+      - bot_logs:/opt/app/logs   # Том для логов приложения
+
+    # Метаданные контейнера
+    # Полезно для идентификации и документации
     labels:
       - "com.wave.bot.description=Telegram Wave Bot"
       - "com.wave.bot.version=0.0.1"
       - "com.wave.bot.maintainer=Wave Team"
-    
-    # Сеть
+
+    # Сеть для контейнера
+    # Подключает контейнер к пользовательской сети
     networks:
       - home
-    
-    # Политика обновления (для Docker Swarm)
+
+    # ЗАКОММЕНТИРОВАННЫЕ НАСТРОЙКИ (для Docker Swarm)
+    # Раскомментируйте при использовании в кластере Docker Swarm
     # deploy:
     #   update_config:
-    #     parallelism: 1
-    #     delay: 10s
-    #     failure_action: rollback
-    #     order: start-first
+    #     parallelism: 1        # Обновлять по одному контейнеру за раз
+    #     delay: 10s           # Задержка между обновлениями
+    #     failure_action: rollback  # Откат при ошибке
+    #     order: start-first    # Сначала запустить новый, потом остановить старый
     #   rollback_config:
-    #     parallelism: 1
-    #     delay: 5s
+    #     parallelism: 1        # Откатывать по одному контейнеру
+    #     delay: 5s            # Задержка между откатами
     #   restart_policy:
-    #     condition: on-failure
-    #     delay: 5s
-    #     max_attempts: 3
+    #     condition: on-failure # Перезапускать только при сбоях
+    #     delay: 5s            # Задержка перед перезапуском
+    #     max_attempts: 3      # Максимум 3 попытки перезапуска
 
-# Именованные volumes
+# Именованные volumes (томы данных)
+# Обеспечивают сохранение данных между перезапусками контейнеров
 volumes:
   bot_data:
-    driver: local
-    name: wave_bot_data
+    driver: local          # Локальный драйвер хранения
+    name: wave_bot_data    # Имя тома в системе
   bot_logs:
     driver: local
     name: wave_bot_logs
 
-# Сети
+# Сети Docker
+# Пользовательская сеть для изоляции контейнеров
 networks:
   home:
-    driver: bridge
-    name: wave_bot_network
-    ipam:
+    driver: bridge                    # Тип сети - мост
+    name: wave_bot_network           # Имя сети в системе
+    ipam:                            # Настройки IP адресации
       driver: default
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 172.28.0.0/16      # Подсеть для контейнеров
     driver_opts:
-      com.docker.network.bridge.name: br-wave-bot
+      com.docker.network.bridge.name: br-wave-bot  # Имя сетевого интерфейса
