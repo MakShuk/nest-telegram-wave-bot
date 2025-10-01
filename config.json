@@ -32,8 +32,8 @@
       "stop": "Остановить",
       "stopped": "Уведомления остановлены",
       "doubleMode": "Двойной режим",
-      "doubleModeEnabled": "✅ Двойной режим вкл.",
-      "doubleModeDisabled": "❌ Двойной режим выкл.",
+      "doubleModeEnabled": "✅ Вкл.",
+      "doubleModeDisabled": "❌ Выкл.",
       "secondNotification": "Повтор"
     },
     "doubleNotificationMode": {

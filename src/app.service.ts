@@ -43,8 +43,8 @@ export class AppService implements OnModuleInit {
             stop: 'Остановить',
             stopped: 'Уведомления остановлены',
             doubleMode: 'Двойной режим',
-            doubleModeEnabled: '✅ Двойной режим включен',
-            doubleModeDisabled: '❌ Двойной режим выключен',
+            doubleModeEnabled: '✅ Вкл.',
+            doubleModeDisabled: '❌ Выкл.',
             secondNotification: 'Повтор'
           },
           doubleNotificationMode: {
@@ -119,8 +119,15 @@ export class AppService implements OnModuleInit {
 
   async sendSecondNotification(message: string): Promise<void> {
     try {
-      // Отправляем второе уведомление без удаления предыдущего
-      const newMessage = await this.bot.telegram.sendMessage(process.env.TELEGRAM_MAIN_USER, message);
+      // Отправляем второе уведомление с кнопкой "Остановить"
+      const messages = this.config.timers.messages;
+      const stopButton = Markup.button.callback(messages.stop, 'stop_from_notification');
+
+      const newMessage = await this.bot.telegram.sendMessage(
+        process.env.TELEGRAM_MAIN_USER,
+        message,
+        Markup.inlineKeyboard([stopButton])
+      );
       this.botMessageIds.push(newMessage.message_id);
     } catch (error) {
       console.error('Ошибка при отправке второго уведомления в Telegram:', error);
@@ -248,6 +255,36 @@ export class AppService implements OnModuleInit {
     });
 
     this.telegramActionsService.buttonAction('stop', async (ctx) => {
+      // Отвечаем на callback query
+      await ctx.answerCbQuery('Уведомления остановлены');
+
+      // Останавливаем уведомления
+      this.notificationService.stopNotification();
+
+      // Очищаем всю историю сообщений бота
+      await this.clearAllBotMessages();
+
+      // Заново показываем меню start
+      const timerButtons = intervals.map((interval: any) =>
+        Markup.button.callback(interval.buttonText, interval.id)
+      );
+
+      const doubleModeText = this.notificationService.isDoubleNotificationEnabled()
+        ? messages.doubleModeEnabled
+        : messages.doubleModeDisabled;
+      const doubleModeButton = Markup.button.callback(doubleModeText, 'toggle_double_mode');
+      const stopButton = Markup.button.callback(messages.stop, 'stop');
+      const allButtons = [...timerButtons, doubleModeButton, stopButton];
+
+      const newStartMessage = await ctx.reply(
+        messages.start,
+        Markup.inlineKeyboard(allButtons, { columns: 2 }),
+      );
+      this.botMessageIds.push(newStartMessage.message_id);
+    });
+
+    // Обработчик для кнопки "Остановить" в сообщениях уведомлений
+    this.telegramActionsService.buttonAction('stop_from_notification', async (ctx) => {
       // Отвечаем на callback query
       await ctx.answerCbQuery('Уведомления остановлены');
 
