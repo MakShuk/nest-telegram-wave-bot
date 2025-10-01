@@ -43,12 +43,17 @@ npm install
 
 1. Создайте файл окружения из примера:
 ```bash
-cp envs/.env.development .env
+cp envs/.env.example .env
 ```
 
-2. Настройте переменные окружения в файле `.env`:
+2. Настройте переменные окружения в файле `.env` (для production используйте .env.production):
 ```env
 TELEGRAM_BOT_TOKEN=ваш_токен_бота
+TELEGRAM_MAIN_USER=ваш_chat_id
+PORT=3000
+NODE_ENV=development
+LOG_LEVEL=log
+# Опционально: TELEGRAM_WEBHOOK_URL=https://your-domain.com/webhook
 ```
 
 ## Использование
@@ -66,11 +71,11 @@ npm run start:prod
 
 ## Docker
 
-Сборка и запуск с использованием Docker Compose:
+Сборка и запуск с использованием Docker Compose (для production создайте envs/.env.production):
 ```bash
 docker-compose up -d
 ```
 
 ## Лицензия
 
-Этот проект распространяется под лицензией MIT - подробности смотрите в файле [LICENSE](LICENSE).
+Этот проект распространяется под лицензией UNLICENSED.
