@@ -107,8 +107,16 @@ export class AppService implements OnModuleInit {
         }
       }
 
-      // Отправляем новое сообщение и сохраняем его ID
-      const newMessage = await this.bot.telegram.sendMessage(process.env.TELEGRAM_MAIN_USER, message);
+      // Добавляем кнопку "Остановить" к сообщению
+      const messages = this.config.timers.messages;
+      const stopButton = Markup.button.callback(messages.stop, 'stop_from_notification');
+
+      // Отправляем новое сообщение с кнопкой и сохраняем его ID
+      const newMessage = await this.bot.telegram.sendMessage(
+        process.env.TELEGRAM_MAIN_USER,
+        message,
+        Markup.inlineKeyboard([stopButton])
+      );
       this.lastMessageId = newMessage.message_id;
       this.botMessageIds.push(newMessage.message_id);
     } catch (error) {
